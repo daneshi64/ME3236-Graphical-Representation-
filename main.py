@@ -10,7 +10,7 @@ from io import BytesIO
 # ============================================================
 
 st.set_page_config(
-    page_title="Statistical Plotting Tool",
+    page_title="Descriptive Statistics & Graphical Representation",
     layout="centered"
 )
 
