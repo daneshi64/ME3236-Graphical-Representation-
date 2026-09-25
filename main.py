@@ -17,7 +17,8 @@ st.title("Statistical Plotting Tool")
 
 st.write(
     "Upload a CSV file containing two columns. "
-    "The second column will be used for the statistical analysis."
+    "The first column contains the index or location, and the second "
+    "column contains the measured data."
 )
 
 # --------------------------------------------------
@@ -31,13 +32,17 @@ uploaded_file = st.file_uploader(
 
 if uploaded_file is not None:
 
-    # Read CSV file
-    df = pd.read_csv(uploaded_file)
+    # Read headerless CSV file
+    df = pd.read_csv(uploaded_file, header=None)
 
     # Check number of columns
     if df.shape[1] < 2:
         st.error("The CSV file must contain at least two columns.")
         st.stop()
+
+    # Give the columns names for display
+    df = df.iloc[:, :2]
+    df.columns = ["Index / Location", "Data"]
 
     # Use second column as measured data
     data = pd.to_numeric(df.iloc[:, 1], errors="coerce")
@@ -65,7 +70,7 @@ if uploaded_file is not None:
     st.subheader("Plot Information")
 
     axis_label = st.text_input(
-        "Axis label (include the unit if applicable)",
+        "Data label (include the unit if applicable)",
         value=""
     )
 
@@ -80,7 +85,6 @@ if uploaded_file is not None:
     )
 
     # Five-number summary
-
     minimum = data.min()
     q1 = data.quantile(0.25)
     median = data.median()
@@ -112,7 +116,9 @@ if uploaded_file is not None:
         use_container_width=True
     )
 
-    # Box-and-whisker plot
+    # --------------------------------------------------
+    # Horizontal box-and-whisker plot
+    # --------------------------------------------------
 
     st.subheader("Box-and-Whisker Plot")
 
@@ -121,7 +127,7 @@ if uploaded_file is not None:
     ax1.boxplot(
         data,
         vert=False,
-        whis=(0, 100),       # minimum to maximum
+        whis=(0, 100),       # whiskers = minimum to maximum
         showfliers=False,
         widths=0.45
     )
@@ -140,7 +146,6 @@ if uploaded_file is not None:
     st.pyplot(fig1)
 
     # Download box plot
-
     buffer1 = BytesIO()
 
     fig1.savefig(
@@ -167,19 +172,19 @@ if uploaded_file is not None:
 
     st.header("Section 2: Histogram")
 
-    # Number of observations
     n = len(data)
 
-    # Calculate recommended number of bins
+    # --------------------------------------------------
+    # Recommended number of bins
+    # --------------------------------------------------
+
     if n < 50:
         k_raw = 1.87 * (n - 1) ** 0.40 + 1
     else:
         k_raw = np.sqrt(n)
 
-    # Round to nearest whole number
     k_opt = max(1, int(round(k_raw)))
 
-    # Data limits
     x_min = data.min()
     x_max = data.max()
 
@@ -187,7 +192,7 @@ if uploaded_file is not None:
     bin_size_opt = (x_max - x_min) / k_opt
 
     # --------------------------------------------------
-    # Show recommended values
+    # Display recommended parameters
     # --------------------------------------------------
 
     st.subheader("Recommended Histogram Parameters")
@@ -203,55 +208,58 @@ if uploaded_file is not None:
     )
 
     st.write(
+        f"Maximum data value: **{x_max:.4g}**"
+    )
+
+    st.write(
         f"Recommended bin size: **{bin_size_opt:.4g}**"
     )
 
     st.write(
-        "Use these values as guidance when selecting the "
+        "Use these values as guidance when selecting an appropriate "
         "starting point and bin size for your histogram."
     )
 
     # --------------------------------------------------
-    # Student input
+    # Student-selected histogram parameters
     # --------------------------------------------------
 
     st.subheader("Choose Histogram Parameters")
 
     starting_x = st.number_input(
         "Starting x (lower bound of the first bin)",
-        value=float(x_min)
+        value=float(x_min),
+        format="%.6g"
     )
 
     bin_size = st.number_input(
         "Bin size",
         min_value=0.0,
-        value=float(bin_size_opt)
+        value=float(bin_size_opt),
+        format="%.6g"
     )
 
     # --------------------------------------------------
-    # Histogram
+    # Create histogram
     # --------------------------------------------------
 
     if bin_size > 0:
 
-        # Make sure the selected starting point includes
-        # the minimum observation
         if starting_x > x_min:
 
             st.warning(
-                "The starting x is greater than the minimum "
-                "data value. Some observations would not be "
-                "included in the histogram."
+                "The starting x is greater than the minimum data "
+                "value. Some observations would not be included "
+                "in the histogram."
             )
 
         else:
 
-            # Determine how many bins are required to include xmax
+            # Determine number of bins needed to include xmax
             number_of_bins = int(
                 np.ceil((x_max - starting_x) / bin_size)
             )
 
-            # At least one bin
             number_of_bins = max(1, number_of_bins)
 
             # Construct bin edges
@@ -260,26 +268,42 @@ if uploaded_file is not None:
                 + np.arange(number_of_bins + 1) * bin_size
             )
 
-            # Protect against floating-point roundoff
+            # Account for floating-point roundoff
             if bin_edges[-1] < x_max:
                 bin_edges = np.append(
                     bin_edges,
                     bin_edges[-1] + bin_size
                 )
 
-            # ------------------------------------------
+            # --------------------------------------------------
+            # Calculate frequencies
+            # --------------------------------------------------
+
+            counts, edges = np.histogram(
+                data,
+                bins=bin_edges
+            )
+
+            # --------------------------------------------------
             # Plot histogram
-            # ------------------------------------------
+            # --------------------------------------------------
 
             st.subheader("Histogram")
 
             fig2, ax2 = plt.subplots(figsize=(8, 5))
 
+            # Unfilled histogram
             ax2.hist(
                 data,
                 bins=bin_edges,
-                edgecolor="black"
+                facecolor="none",
+                edgecolor="black",
+                linewidth=1.2
             )
+
+            # ------------------------------------------
+            # Left axis: Frequency
+            # ------------------------------------------
 
             ax2.set_xlabel(axis_label)
             ax2.set_ylabel("Frequency")
@@ -290,22 +314,43 @@ if uploaded_file is not None:
                 alpha=0.3
             )
 
+            # ------------------------------------------
+            # Right axis: Relative Frequency
+            # ------------------------------------------
+
+            ax_right = ax2.twinx()
+
+            # Make the right axis correspond exactly
+            # to frequency / total number of observations
+            ymin, ymax = ax2.get_ylim()
+
+            ax_right.set_ylim(
+                ymin / n,
+                ymax / n
+            )
+
+            ax_right.set_ylabel("Relative Frequency")
+
+            # ------------------------------------------
+            # Finish figure
+            # ------------------------------------------
+
             fig2.tight_layout()
 
             st.pyplot(fig2)
 
-            # ------------------------------------------
-            # Show selected bin information
-            # ------------------------------------------
+            # --------------------------------------------------
+            # Display final histogram information
+            # --------------------------------------------------
 
             st.write(
                 f"Your histogram uses **{len(bin_edges) - 1} bins** "
                 f"with a bin size of **{bin_size:.4g}**."
             )
 
-            # ------------------------------------------
+            # --------------------------------------------------
             # Download histogram
-            # ------------------------------------------
+            # --------------------------------------------------
 
             buffer2 = BytesIO()
 
