@@ -20,7 +20,7 @@ st.write(
 )
 
 st.info(
-    "The whiskers in this plot extend from the minimum to the maximum value."
+    "The whiskers extend from the minimum to the maximum value."
 )
 
 # --------------------------------------------------
@@ -34,7 +34,7 @@ uploaded_file = st.file_uploader(
 
 if uploaded_file is not None:
 
-    # Read CSV
+    # Read CSV file
     df = pd.read_csv(uploaded_file)
 
     # Check number of columns
@@ -45,7 +45,7 @@ if uploaded_file is not None:
     # Use second column as measured data
     data = pd.to_numeric(df.iloc[:, 1], errors="coerce")
 
-    # Remove missing/non-numeric values
+    # Remove missing or non-numeric values
     data = data.dropna()
 
     if len(data) == 0:
@@ -64,30 +64,15 @@ if uploaded_file is not None:
     )
 
     # --------------------------------------------------
-    # User input
+    # Axis label
     # --------------------------------------------------
 
     st.subheader("Plot Information")
 
-    label = st.text_input(
-        "Variable label",
+    axis_label = st.text_input(
+        "Axis label (include the unit if applicable)",
         value=""
     )
-
-    unit = st.text_input(
-        "Unit",
-        value=""
-    )
-
-    # Construct axis label
-    if label and unit:
-        axis_label = f"{label} ({unit})"
-    elif label:
-        axis_label = label
-    elif unit:
-        axis_label = f"({unit})"
-    else:
-        axis_label = ""
 
     # --------------------------------------------------
     # Five-number summary
@@ -125,30 +110,31 @@ if uploaded_file is not None:
     )
 
     # --------------------------------------------------
-    # Box-and-whisker plot
+    # Horizontal box-and-whisker plot
     # --------------------------------------------------
 
     st.subheader("Box-and-Whisker Plot")
 
-    fig, ax = plt.subplots(figsize=(5, 6))
+    fig, ax = plt.subplots(figsize=(8, 3))
 
     ax.boxplot(
         data,
-        whis=(0, 100),      # whiskers = minimum to maximum
+        vert=False,          # horizontal box plot
+        whis=(0, 100),       # whiskers = minimum to maximum
         showfliers=False,
         widths=0.45
     )
 
-    # Y-axis label
-    ax.set_ylabel(axis_label)
+    # X-axis label
+    ax.set_xlabel(axis_label)
 
-    # Remove unnecessary x-axis category
-    ax.set_xticks([])
+    # Remove unnecessary y-axis category
+    ax.set_yticks([])
 
-    # Horizontal grid
+    # Vertical grid lines
     ax.grid(
         True,
-        axis="y",
+        axis="x",
         alpha=0.3
     )
 
@@ -157,7 +143,7 @@ if uploaded_file is not None:
     st.pyplot(fig)
 
     # --------------------------------------------------
-    # Download figure
+    # Download plot
     # --------------------------------------------------
 
     buffer = BytesIO()
